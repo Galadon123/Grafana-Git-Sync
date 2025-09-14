@@ -1,90 +1,55 @@
-# Cedana CUDA Checkpoint Fundamentals
+# CUDA Fundamentals
 
-## What You'll Learn
-How Cedana implements GPU workload checkpointing using NVIDIA CUDA integration, based on the project's CUDA plugin architecture.
+## What We'll Learn
+How Cedana extends checkpoint/restore to include NVIDIA GPU state, enabling migration of CUDA applications.
 
-## Cedana's CUDA Implementation
+## Core Concepts
 
-### Core CUDA Support
-Cedana's CUDA integration lives in:
-- `internal/cedana/criu/checks_cuda.go` - Driver and version validation
-- CRIU wrapper with CUDA extensions in `pkg/criu/`
-- Specialized checkpoint handlers for GPU memory and contexts
+GPU checkpointing is more complex than CPU-only processes because we need to preserve:
+- **GPU Memory** - All device memory allocations and their contents
+- **CUDA Contexts** - GPU execution environments and configurations
+- **Stream State** - Asynchronous operation queues and dependencies
+- **Device Settings** - Hardware configuration and current state
 
-### CUDA Plugin Architecture
-The Cedana CUDA plugin validates and manages:
-- **Driver Version Checking**: Ensures NVIDIA driver >= 570 via `nvidia-smi` parsing
-- **CRIU Version Validation**: Requires CRIU 4.0+ with CUDA support enabled
-- **GPU Resource Management**: Device enumeration and memory allocation tracking
-- **Context Preservation**: CUDA execution context state maintenance
+## How GPU Checkpointing Works
 
-## Key Concepts
+Cedana's CUDA integration:
+1. **Validates** NVIDIA driver version (570+ required) and CRIU version (4.0+)
+2. **Enumerates** all GPU memory allocations in the target process
+3. **Captures** CUDA context state and device configurations
+4. **Transfers** GPU memory contents to checkpoint files
+5. **Coordinates** with CPU checkpoint for complete application state
 
-### GPU State Components
-When Cedana checkpoints CUDA workloads, it preserves:
-- **Device Memory**: All GPU memory allocations and their contents
-- **CUDA Contexts**: GPU execution environments and their configurations
-- **Stream State**: Asynchronous operation queues and dependencies
-- **Device Properties**: Hardware capabilities and current settings
+## Version Requirements
 
-### Version Requirements (from checks_cuda.go)
-Cedana enforces strict version compatibility:
-- `CRIU_MIN_VERSION_FOR_CUDA = 40000` (CRIU 4.0+)
-- `CRIU_MIN_CUDA_VERSION = 570` (NVIDIA driver 570+)
-- CUDA toolkit compatibility for target applications
+From Cedana's implementation:
+- **NVIDIA Driver**: Version 570 or higher
+- **CRIU Version**: 4.0+ with CUDA support compiled in
+- **Hardware**: CUDA-compatible GPU (compute capability varies)
 
-### Checkpoint Process Flow
-1. **Pre-Checkpoint Validation**: GPU driver and CRIU version checks
-2. **GPU Memory Enumeration**: Scan all device memory allocations
-3. **Context State Capture**: Save CUDA execution environments
-4. **Memory Contents Dump**: Transfer GPU memory to checkpoint images
-5. **Device Configuration Save**: Record GPU hardware settings
+## When GPU Checkpointing is Useful
 
-## Understanding Cedana's Implementation
+- **AI/ML Training** - Save progress during long training runs
+- **Scientific Computing** - Migrate HPC applications between GPU nodes
+- **Development** - Save complex GPU application states for debugging
+- **Resource Management** - Move GPU workloads to optimal hardware
 
-### Driver Version Validation
-Cedana parses `nvidia-smi` output to extract driver versions:
-- Uses regex pattern matching to find driver version strings
-- Validates against minimum required versions
-- Reports specific version incompatibilities for troubleshooting
+## Quick Implementation
 
-### CUDA Context Management
-The checkpoint process handles:
-- **Multi-Context Applications**: Applications using multiple GPU contexts
-- **Context Dependencies**: Relationships between different contexts
-- **Resource Allocation**: GPU memory and compute resource tracking
-- **State Consistency**: Ensuring coherent GPU state during checkpoint
+1. **Verify Support** - `cedana health-check cuda` validates environment
+2. **Run GPU Application** - Start CUDA program and identify its PID
+3. **Checkpoint** - `cedana dump --type process --pid <PID> --cuda`
+4. **Migrate & Restore** - Move checkpoint files and restore on GPU-enabled system
 
-### Cross-GPU Migration Considerations
-Cedana supports migration between:
-- **Identical GPUs**: Same model and architecture (fully supported)
-- **Compatible GPUs**: Same architecture, different models (limited support)
-- **Different Architectures**: Requires careful compatibility validation
+## Limitations
 
-## Lab Exercise
+- NVIDIA-only (no AMD or Intel GPU support currently)
+- Driver version sensitivity between checkpoint and restore systems
+- Some CUDA features may not be fully preserved
+- Cross-architecture migration has compatibility constraints
 
-### Exploring CUDA Integration
-1. **Review Health Checks**: Examine how Cedana validates CUDA support
-2. **Simple GPU Application**: Test with basic CUDA memory allocation
-3. **Checkpoint Creation**: Use Cedana to checkpoint GPU workload
-4. **Cross-System Migration**: Test restore on different GPU systems
-5. **Validation**: Verify GPU memory and context preservation
+## Key Files to Explore
+- `internal/cedana/criu/checks_cuda.go` - GPU validation and version checking
+- Cedana's CRIU integration handles GPU memory transfer
 
-### Understanding Limitations
-- NVIDIA-specific implementation (no AMD/Intel GPU support yet)
-- Driver version sensitivity
-- GPU architecture compatibility constraints
-- Memory allocation size impacts on checkpoint speed
-
-## Success Criteria
-- Understand Cedana's CUDA validation process
-- Can checkpoint simple GPU applications
-- Recognize version compatibility requirements
-- Know when cross-GPU migration will succeed
-
-## Reference Files
-- `internal/cedana/criu/checks_cuda.go` - CUDA validation implementation
-- `pkg/criu/criu.go` - Core CRIU integration with GPU support
-- Plugin architecture examples for GPU-specific handling
-
-This foundation enables you to work with Cedana's GPU checkpoint capabilities and understand its design decisions for CUDA workload migration.
+GPU checkpointing enables powerful new workflows for GPU-accelerated applications.

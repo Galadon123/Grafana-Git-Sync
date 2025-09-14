@@ -1,66 +1,36 @@
-# CRIU Dump/Checkpoint Tutorial
+# Basic Process Checkpoint
 
-## Overview
-CRIU (Checkpoint/Restore in Userspace) dump operation creates a snapshot of a running process by saving its entire state to disk. This technique allows you to pause a process and resume it later, even on a different machine.
+## What We'll Learn
+How Cedana captures the complete state of a running process and saves it to disk for later restoration.
 
-## How CRIU Dump Works
+## Core Concepts
 
-### Key Components
-- **Process Memory**: All memory pages used by the process
-- **File Descriptors**: Open files, sockets, pipes
-- **Process Tree**: Parent-child relationships
-- **Namespaces**: Network, mount, PID, and other namespaces
-- **Credentials**: User/group IDs and capabilities
+A checkpoint is like taking a snapshot of a running program. Cedana uses CRIU to capture:
+- **Process Memory** - All data the program has in RAM
+- **CPU State** - Current instruction pointer and register values
+- **Open Files** - File descriptors and their current positions
+- **Network Connections** - Active sockets and their state
 
-### Implementation Flow
-1. **Process Discovery**: Find target process by PID
-2. **Memory Dumping**: Save all memory mappings and pages
-3. **File Descriptor Collection**: Capture all open file handles
-4. **State Serialization**: Save process registers and context
-5. **Image Creation**: Write checkpoint data to image files
+## How It Works
 
-### Code Example (from dump_handlers.go:37)
-```go
-func dump(ctx context.Context, opts types.Opts, resp *daemon.DumpResp, req *daemon.DumpReq) {
-    // Set CRIU options
-    criuOpts.Pid = proto.Int32(int32(resp.GetState().GetPID()))
-    criuOpts.ImagesDir = proto.String(dumpDir)
-    criuOpts.LogFile = proto.String("criu-dump.log")
+When we checkpoint a process, Cedana:
+1. **Pauses** the target process temporarily
+2. **Scans** its memory, files, and system state
+3. **Writes** all state information to image files
+4. **Resumes** the process (or terminates it for migration)
 
-    // Execute dump operation
-    _, err = opts.CRIU.Dump(ctx, criuOpts, opts.CRIUCallback)
-}
-```
+The checkpoint creates several files containing different aspects of the process state.
 
-### Key Configuration Options
-- `ImagesDir`: Directory where checkpoint images are stored
-- `Pid`: Target process ID to dump
-- `GhostLimit`: Maximum size for "ghost" files (200MB default)
-- `LogLevel`: Verbosity of CRIU logging
+## Quick Implementation
 
-### Output Files
-After a successful dump, you'll find these files in the images directory:
-- `core-*.img`: Process core information
-- `mm-*.img`: Memory mappings
-- `pages-*.img`: Memory page contents
-- `files.img`: File descriptor information
-- `criu-dump.log`: Operation log
+1. **Find Process** - Identify the PID of our target process
+2. **Run Checkpoint** - `cedana dump --type process --pid <PID>`
+3. **Verify** - Check that checkpoint files were created
+4. **Test** - Try restoring to confirm it worked
 
-## When to Use CRIU Dump
-- **Long-running computations**: Save progress and resume later
-- **Live migration**: Move processes between servers
-- **Container checkpointing**: Save container state
-- **Debugging**: Capture process state for analysis
-- **Fault tolerance**: Create recovery points
+## Key Files to Explore
+- `internal/cedana/criu/dump_handlers.go` - Main checkpoint logic
+- `pkg/criu/criu.go` - CRIU wrapper functions
+- `internal/cedana/criu/dump_adapters.go` - Process preparation
 
-## Limitations
-- Requires root privileges or specific capabilities
-- Some system calls cannot be checkpointed
-- External dependencies (databases, network connections) may break
-- Large memory processes create large checkpoint files
-
-## Best Practices
-1. Test checkpoint/restore in development environment first
-2. Monitor disk space for checkpoint images
-3. Handle external resource reconnection after restore
-4. Use pre-dump for faster final dumps on large processes
+The checkpoint files contain everything needed to recreate the exact process state later, even on a different machine.

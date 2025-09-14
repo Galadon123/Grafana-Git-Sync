@@ -1,126 +1,43 @@
-# CRIU Restore Tutorial
+# Basic Process Restore
 
-## Overview
-CRIU restore operation brings a checkpointed process back to life from its saved state. This technique reconstructs the entire process environment, including memory, file descriptors, and process relationships.
+## What We'll Learn
+How Cedana brings a checkpointed process back to life from saved checkpoint files.
 
-## How CRIU Restore Works
+## Core Concepts
 
-### Key Steps
-1. **Image Reading**: Load checkpoint data from image files
-2. **Memory Restoration**: Recreate process memory mappings and content
-3. **File Descriptor Recovery**: Reopen files, sockets, and pipes
-4. **Process Creation**: Fork and configure the restored process
-5. **State Application**: Restore registers and execution context
-6. **Namespace Setup**: Recreate process namespaces
+Restore is the opposite of checkpoint - we recreate a process from its saved state. Cedana reads the checkpoint files and:
+- **Recreates Memory** - Allocates and fills memory with saved data
+- **Restores CPU State** - Sets registers and instruction pointer
+- **Reopens Files** - Recreates file descriptors at correct positions
+- **Rebuilds Connections** - Reestablishes network sockets where possible
 
-### Implementation Flow (from restore_handlers.go:29)
-```go
-func restore(ctx context.Context, opts types.Opts, resp *daemon.RestoreResp, req *daemon.RestoreReq) {
-    // Configure restore options
-    criuOpts.ImagesDir = proto.String(imageDir)
-    criuOpts.LogFile = proto.String("criu-restore.log")
+## How It Works
 
-    // Handle I/O streams for restored process
-    var stdin io.Reader
-    var stdout, stderr io.Writer
+During restore, Cedana:
+1. **Reads** checkpoint image files
+2. **Allocates** memory and system resources
+3. **Creates** new process with saved state
+4. **Jumps** to the exact instruction where checkpoint happened
 
-    // Execute restore operation
-    criuResp, err := opts.CRIU.Restore(ctx, criuOpts, opts.CRIUCallback,
-                                       stdin, stdout, stderr, extraFiles...)
+The process continues running as if nothing interrupted it.
 
-    // Set restored process PID
-    resp.PID = uint32(*criuResp.Pid)
-}
-```
+## Quick Implementation
 
-### Process Lifecycle Management
-The restore handler manages the complete lifecycle:
-- **Process Reaping**: Monitors restored process exit
-- **Stream Handling**: Manages stdin/stdout/stderr
-- **Exit Code Tracking**: Captures process exit status
+1. **Locate Checkpoint** - Find the directory with checkpoint files
+2. **Run Restore** - `cedana restore --checkpoint-dir <path>`
+3. **Monitor** - Watch for the restored process to start
+4. **Validate** - Verify the process is running correctly
 
-### Key Configuration Options
-- `ImagesDir`: Directory containing checkpoint images
-- `LogLevel`: Restore operation verbosity
-- `GhostLimit`: Maximum size for ghost files
-- `Attachable`: Whether process can be attached to terminal
+## Common Challenges
 
-### I/O Stream Management
-Restore supports different I/O modes:
-- **Daemonless**: Direct connection to terminal (stdin/stdout/stderr)
-- **Attachable**: Stream I/O through cedana's I/O system
-- **File Output**: Redirect output to specified file
+- **File Dependencies** - Original files must still exist or be accessible
+- **Network State** - Some connections can't be restored and need reconnection
+- **Resource Conflicts** - Ports or resources might be in use
+- **Environment Differences** - System differences between checkpoint and restore
 
-## Restore Process Architecture
+## Key Files to Explore
+- `internal/cedana/criu/restore_handlers.go` - Main restore logic
+- `internal/cedana/criu/restore_adapters.go` - Process recreation
+- `pkg/criu/criu.go` - CRIU restore functions
 
-### Memory Restoration
-1. Parse memory mappings from `mm-*.img`
-2. Allocate virtual memory regions
-3. Load page contents from `pages-*.img`
-4. Set memory permissions and flags
-
-### File Descriptor Recovery
-1. Read file information from `files.img`
-2. Reopen files in same order
-3. Restore file positions and flags
-4. Handle special files (sockets, pipes, devices)
-
-### Namespace Recreation
-1. Create new namespaces as needed
-2. Configure network interfaces
-3. Set up mount points
-4. Restore PID namespace hierarchy
-
-## Error Handling and Recovery
-
-### Common Restore Failures
-- **Missing files**: Files that existed during dump are now absent
-- **Permission changes**: File permissions modified since dump
-- **Network conflicts**: Port/address already in use
-- **Resource limits**: System limits prevent restoration
-
-### Zombie Process Cleanup
-```go
-if pid := resp.GetState().GetPID(); pid != 0 {
-    if p, err := os.FindProcess(int(pid)); err == nil {
-        p.Wait() // Clean up zombie process
-    }
-}
-```
-
-## Advanced Features
-
-### Notification System
-CRIU supports callback notifications during restore:
-- `pre-restore`: Before starting restore
-- `post-restore`: After successful restore
-- `setup-namespaces`: During namespace creation
-- `network-lock/unlock`: Network configuration phases
-
-### Multi-Process Restoration
-For process trees, CRIU coordinates:
-- Parent-child relationship recreation
-- Shared memory restoration
-- Signal delivery synchronization
-
-## When to Use CRIU Restore
-- **Service migration**: Move services between servers
-- **Disaster recovery**: Restore from checkpoint after failure
-- **Development workflow**: Quickly return to specific application state
-- **Container resumption**: Restart containers from saved state
-- **Testing**: Restore consistent test environments
-
-## Best Practices
-1. **Verify image integrity** before restore
-2. **Check resource availability** (memory, disk space, ports)
-3. **Handle external dependencies** (databases, APIs) gracefully
-4. **Monitor restored process health** after startup
-5. **Implement retry logic** for transient failures
-6. **Use proper logging** to debug restore issues
-
-## Troubleshooting
-- Check CRIU restore logs in `criu-restore.log`
-- Verify all checkpoint image files are present
-- Ensure sufficient system resources
-- Test restore in isolated environment first
-- Monitor process behavior after restoration
+Successful restore means the process picks up exactly where it left off, with all its memory and state intact.
