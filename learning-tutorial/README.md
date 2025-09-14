@@ -1,17 +1,19 @@
 # Cedana Checkpoint/Restore Tutorial
 
-This collection helps you understand how checkpoint/restore works by exploring the Cedana project. You'll learn the concepts step-by-step using real code examples and practical exercises that you can run yourself.
+This collection helps us understand how checkpoint/restore works by exploring the Cedana project. We'll learn the concepts step-by-step using real code examples and practical exercises that we can run ourselves.
 
 ## Tutorial Categories
 
 ### **[Basics](./basics/)** - Foundation Level
-Start here if you're new to checkpoint/restore. These tutorials cover the essential concepts that everyone should understand before moving to specialized topics.
+We start here if we're new to checkpoint/restore. These tutorials cover the essential concepts we should understand before moving to specialized topics.
 - **[Environment Setup and Validation](./basics/01-setup-and-validation.md)** - Install and verify CRIU
 - **[Basic Process Checkpoint](./basics/02-basic-checkpoint.md)** - Your first checkpoint
 - **[Basic Process Restore](./basics/03-basic-restore.md)** - Your first restore
 - **[Memory Optimization Techniques](./basics/04-memory-optimization.md)** - Pre-dump techniques
 - **[Page Server Implementation](./basics/05-page-server.md)** - Network-based migration
 - **[Troubleshooting Guide](./basics/06-troubleshooting.md)** - Debug common issues
+
+
 
 **Prerequisites: Linux fundamentals**
 
@@ -39,5 +41,3 @@ Ready to deploy in production? These tutorials cover advanced scenarios like zer
 - **[Enterprise Deployment Scenarios](./live-migration/02-enterprise-scenarios.md)** - Complex deployments
 - **[Validation and Testing Framework](./live-migration/03-validation-testing.md)** - Production testing
 - **[Multi-Service Stack Migration](./live-migration/04-multi-service-migration.md)** - Application stacks
-
-
